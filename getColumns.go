@@ -3,7 +3,7 @@
 ** Author: Marin Alcaraz
 ** Mail   <marin.alcaraz@gmail.com>
 ** Started on  Mon Mar 09 10:21:47 2015 Marin Alcaraz
-** Last update Mon Mar 09 18:43:10 2015 Marin Alcaraz
+** Last update Tue Mar 10 15:24:10 2015 Marin Alcaraz
  */
 
 package main
@@ -22,13 +22,19 @@ const (
 	urlMilenio   = "http://www.milenio.com/df/firmas/"
 )
 
-type newsPaper interface {
-	getColumnURLs() []string
-	columnDownloader([]string)
+type newspaper interface {
+	getColumnURLs() []columnMeta
+	columnDownloader(string)
 }
 
 type universal struct{}
+
 type milenio struct{}
+
+type columnMeta struct {
+	paper newspaper
+	url   string
+}
 
 func check(err error) {
 	if err != nil {
@@ -37,8 +43,8 @@ func check(err error) {
 	}
 }
 
-func (paper milenio) getColumnURLs() []string {
-	var urls []string
+func (paper milenio) getColumnURLs() []columnMeta {
+	var columns []columnMeta
 	rr := regexp.MustCompile(`carlos_marin|joaquin_lopez-doriga|carlos_puig`)
 	doc, err := goquery.NewDocument(urlMilenio)
 	check(err)
@@ -48,78 +54,86 @@ func (paper milenio) getColumnURLs() []string {
 			url, exists := c.Attr("href")
 			if exists {
 				if rr.MatchString(url) {
-					urls = append(urls, url)
+					var column columnMeta
+					column.url = "http://milenio.com" + url
+					column.paper = paper
+					columns = append(columns, column)
 				}
 			}
 		})
 	})
-	return urls
+	return columns
 }
 
-func (paper milenio) columnDownloader(urls []string) {
-	for _, columnURL := range urls {
-		doc, err := goquery.NewDocument("http://milenio.com" + columnURL)
-		check(err)
-		doc.Find(".mce-body").Each(func(i int, s *goquery.Selection) {
-			s.Find("p").Each(func(i int, p *goquery.Selection) {
-				value, _ := p.Attr("itemprop")
-				if value != "articleBody" {
-					fmt.Println(p.Text())
-				}
-			})
+func (paper milenio) columnDownloader(url string) {
+	doc, err := goquery.NewDocument(url)
+	check(err)
+	doc.Find(".mce-body").Each(func(i int, s *goquery.Selection) {
+		fmt.Println("-----------------------------------------")
+		s.Find("p").Each(func(i int, p *goquery.Selection) {
+			value, _ := p.Attr("itemprop")
+			if value != "articleBody" {
+				fmt.Println(p.Text())
+			}
 		})
-	}
+		fmt.Println("-----------------------------------------")
+	})
 }
 
-func (paper universal) getColumnURLs() []string {
+func (paper universal) getColumnURLs() []columnMeta {
 	doc, err := goquery.NewDocument(urlUniversal)
 	check(err)
-	var urls []string
+	var columnItems []columnMeta
 	doc.Find(".master_sprite").Each(func(i int, s *goquery.Selection) {
+		//var column columnMeta
 		columnName := s.Find(".linkBlueTimes")
-		switch columnName.Text() {
-		case "Ciro Gómez Leyva":
-			urls = append(urls, paper.getColumnURL("Ciro Gómez Leyva", s))
-		case "Ricardo Alemán  ":
-			urls = append(urls, paper.getColumnURL("Ricardo Alemán  ", s))
-		case "León Krauze":
-			urls = append(urls, paper.getColumnURL("León Krauze", s))
+		rr := regexp.MustCompile(`Ciro|Ricardo|León|Denise|Carlos`)
+		if rr.MatchString(columnName.Text()) {
+			var column columnMeta
+			column.url = paper.getColumnURL(s)
+			column.paper = paper
+			columnItems = append(columnItems, column)
 		}
 	})
-	return urls
+	return columnItems
 }
 
-func (paper universal) getColumnURL(author string, s *goquery.Selection) string {
+func (paper universal) getColumnURL(s *goquery.Selection) string {
 	url, exists := s.Find(".linkBlueTimes").Attr("href")
 	if exists {
 		return url
 	}
-	log.Println("[!]No column from", author)
 	return ""
 }
 
-func (paper universal) columnDownloader(urls []string) {
-	for _, columnURL := range urls {
-		doc, err := goquery.NewDocument(columnURL)
+func (paper universal) columnDownloader(url string) {
+	if url != "" {
+		doc, err := goquery.NewDocument(url)
 		check(err)
 		doc.Find("#content").Each(func(i int, s *goquery.Selection) {
+			fmt.Println("-----------------------------------------")
 			s.Find("p").Each(func(i int, p *goquery.Selection) {
 				value, _ := p.Attr("class")
 				if value != "noteColumnist" {
 					fmt.Print(p.Text())
 				}
 			})
+			fmt.Println("-----------------------------------------")
 		})
+
 	}
 }
 
 func main() {
-	var urls []string
-	newsPapers := []newsPaper{milenio{}}
-	for _, paper := range newsPapers {
-		urls = append(urls, paper.getColumnURLs()...)
+	var myColumns []columnMeta
+	newspapers := []newspaper{universal{}, milenio{}}
+
+	//Get the URLS for each column given a newspaper
+	for _, paper := range newspapers {
+		myColumns = append(myColumns, paper.getColumnURLs()...)
 	}
-	for _, paper := range newsPapers {
-		paper.columnDownloader(urls)
+	//Download (Print to stdin and redirect to a file)
+	for _, column := range myColumns {
+		column.paper.columnDownloader(column.url)
 	}
 }
