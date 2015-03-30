@@ -3,7 +3,7 @@
 ** Author: Marin Alcaraz
 ** Mail   <marin.alcaraz@gmail.com>
 ** Started on  Mon Mar 09 10:21:47 2015 Marin Alcaraz
-** Last update Tue Mar 10 15:24:10 2015 Marin Alcaraz
+** Last update Mon Mar 30 18:35:49 2015 Marin Alcaraz
  */
 
 package main
@@ -66,17 +66,23 @@ func (paper milenio) getColumnURLs() []columnMeta {
 }
 
 func (paper milenio) columnDownloader(url string) {
+	flag := true
 	doc, err := goquery.NewDocument(url)
 	check(err)
+	fmt.Println("Título:", doc.Find(".pg-bkn-entry-title").Text())
+	fmt.Println("Diario: Milenio")
+	fmt.Println(doc.Find(".byline").Text())
 	doc.Find(".mce-body").Each(func(i int, s *goquery.Selection) {
-		fmt.Println("-----------------------------------------")
-		s.Find("p").Each(func(i int, p *goquery.Selection) {
-			value, _ := p.Attr("itemprop")
-			if value != "articleBody" {
-				fmt.Println(p.Text())
-			}
-		})
-		fmt.Println("-----------------------------------------")
+		if flag == true {
+			s.Find("p").Each(func(i int, p *goquery.Selection) {
+				value, _ := p.Attr("itemprop")
+				if value != "articleBody" {
+					fmt.Println(p.Text())
+				}
+			})
+			flag = false
+			fmt.Println("-----------------------------------------")
+		}
 	})
 }
 
@@ -111,7 +117,8 @@ func (paper universal) columnDownloader(url string) {
 		doc, err := goquery.NewDocument(url)
 		check(err)
 		doc.Find("#content").Each(func(i int, s *goquery.Selection) {
-			fmt.Println("-----------------------------------------")
+			fmt.Println("Título:", s.Find(".noteTitle").Text())
+			fmt.Println("Diario: El Universal")
 			s.Find("p").Each(func(i int, p *goquery.Selection) {
 				value, _ := p.Attr("class")
 				if value != "noteColumnist" {
