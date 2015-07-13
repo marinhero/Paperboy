@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	urlUniversal = "http://www.eluniversal.com.mx/opinion-columnas-articulos.html"
+	urlUniversal = "http://www.eluniversal.com.mx/columnistas"
 	urlMilenio   = "http://www.milenio.com/df/firmas/"
 )
 
@@ -90,11 +90,11 @@ func (paper universal) getColumnURLs() []columnMeta {
 	doc, err := goquery.NewDocument(urlUniversal)
 	check(err)
 	var columnItems []columnMeta
-	doc.Find(".master_sprite").Each(func(i int, s *goquery.Selection) {
-		//var column columnMeta
-		columnName := s.Find(".linkBlueTimes")
-		rr := regexp.MustCompile(`Ciro|Ricardo|León|Denise|Carlos`)
-		if rr.MatchString(columnName.Text()) {
+	doc.Find(".views-field-field-nombre-del-contenido").Each(func(i int, s *goquery.Selection) {
+		rr := regexp.MustCompile(`ciro|ricardo|denise|mola`)
+		columnHref := s.Find("a")
+		url, _ := columnHref.Attr("href")
+		if rr.MatchString(url) {
 			var column columnMeta
 			column.url = paper.getColumnURL(s)
 			column.paper = paper
@@ -105,7 +105,10 @@ func (paper universal) getColumnURLs() []columnMeta {
 }
 
 func (paper universal) getColumnURL(s *goquery.Selection) string {
-	url, exists := s.Find(".linkBlueTimes").Attr("href")
+	prefix := "http://eluniversal.com.mx"
+	columnHref := s.Find("a")
+	uri, exists := columnHref.Attr("href")
+	url := prefix + uri
 	if exists {
 		return url
 	}
@@ -116,14 +119,12 @@ func (paper universal) columnDownloader(url string) {
 	if url != "" {
 		doc, err := goquery.NewDocument(url)
 		check(err)
-		doc.Find("#content").Each(func(i int, s *goquery.Selection) {
-			fmt.Println("Título:", s.Find(".noteTitle").Text())
-			fmt.Println("Diario: El Universal")
+		title := doc.Find("h1").Text()
+		fmt.Println("Título:", title)
+		fmt.Println("Diario: El Universal")
+		doc.Find(".field-name-body").Each(func(i int, s *goquery.Selection) {
 			s.Find("p").Each(func(i int, p *goquery.Selection) {
-				value, _ := p.Attr("class")
-				if value != "noteColumnist" {
-					fmt.Print(p.Text())
-				}
+				fmt.Println(p.Text())
 			})
 			fmt.Println("-----------------------------------------")
 		})
